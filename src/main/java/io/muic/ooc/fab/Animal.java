@@ -3,26 +3,50 @@ package io.muic.ooc.fab;
 import java.util.List;
 import java.util.Random;
 
-public abstract class Animal {
+public abstract class Animal implements AnimalProperties{
     // Whether the animal is alive or not.
-    private boolean alive;
-
+    private boolean alive = true;
     // The fox's position.
     protected Location location;
     // The field occupied.
     protected Field field;
     // Individual characteristics (instance fields).
     // The fox's age.
-    protected int age;
+    protected int age = 0;
 
-    private static final Random RANDOM = new Random();
+    public abstract Location moveToNewLocation();
+    protected abstract int getMaxLiterSize();
+    protected abstract int getBreedingAge();
+    protected abstract int getMaxAge();
+    protected abstract double getBreedingProbability();
 
+    protected static final Random RANDOM = new Random();
+
+    @Override
+    public void init(boolean randomAge, Field field, Location location){
+        this.field = field;
+        setLocation((location));
+        if(randomAge) age = RANDOM.nextInt(getMaxAge());
+    }
+
+    @Override
+    public void act(List<AnimalProperties> newAnimals){
+        incrementAge();
+        if (isAlive()) {
+            giveBirth(newAnimals);
+            Location newLocation = moveToNewLocation();
+
+            if(newLocation != null) setLocation(newLocation);
+            else setDead();
+        }
+    }
 
     /**
      * Check whether the animal is alive or not.
      *
      * @return true if the animal is still alive.
      */
+    @Override
     public boolean isAlive() {
         return alive;
     }
@@ -40,12 +64,12 @@ public abstract class Animal {
         return location;
     }
 
-    public abstract int getMaxAge();
 
     /**
      * Increase the age. This could result in the rabbit's death.
      */
-    protected void incrementAge() {
+   @Override
+    public void incrementAge() {
         age++;
         if (age > getMaxAge()) {
             setDead();
@@ -56,7 +80,8 @@ public abstract class Animal {
     /**
      * Indicate that the fox is no longer alive. It is removed from the field.
      */
-    protected void setDead() {
+    @Override
+    public void setDead() {
         setAlive(false);
         if (location != null) {
             field.clear(location);
@@ -70,10 +95,9 @@ public abstract class Animal {
      *
      * @param newLocation The rabbit's new location.
      */
-    protected void setLocation(Location newLocation) {
-        if (location != null) {
-            field.clear(location);
-        }
+    @Override
+    public void setLocation(Location newLocation) {
+        if (location != null) field.clear(location);
         location = newLocation;
         field.place(this, newLocation);
     }
@@ -83,29 +107,26 @@ public abstract class Animal {
      *
      * @return The number of births (may be zero).
      */
-    protected int breed() {
+    @Override
+    public int breed() {
         int births = 0;
         if (canBreed() && RANDOM.nextDouble() <= getBreedingProbability()) {
-            births = RANDOM.nextInt(getMaxLitterSize()) + 1;
+            births = RANDOM.nextInt(getMaxLiterSize()) + 1;
         }
         return births;
     }
 
-    protected abstract double getBreedingProbability();
-    protected abstract int getMaxLitterSize();
 
     /**
      * A rabbit can breed if it has reached the breeding age.
      *
      * @return true if the rabbit can breed, false otherwise.
      */
-    private boolean canBreed() {
+    @Override
+    public boolean canBreed() {
         return age >= getBreedingAge();
     }
 
-    protected abstract int getBreedingAge();
-
-    protected abstract Animal createYoung(boolean randomAge, Field field, Location location);
 
     /**
      * Check whether or not this rabbit is to give birth at this step. New
@@ -113,16 +134,22 @@ public abstract class Animal {
      *
      * @param newRabbits A list to return newly born rabbits.
      */
-    protected void giveBirth(List newRabbits) {
+    @Override
+    public void giveBirth(List newRabbits) {
         // New rabbits are born into adjacent locations.
         // Get a list of adjacent free locations.
         List<Location> free = field.getFreeAdjacentLocations(location);
         int births = breed();
         for (int b = 0; b < births && free.size() > 0; b++) {
             Location loc = free.remove(0);
-            Animal young = createYoung(false, field, loc);
+            Animal young = breedOne(field, loc);
             newRabbits.add(young);
         }
+    }
+
+    @Override
+    public Animal breedOne(Field field, Location location){
+        return AnimalFactory.createAnimal(getClass(), field, location);
     }
 
 
